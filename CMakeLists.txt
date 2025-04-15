@@ -5,8 +5,8 @@ set(SOURCES
 )
 
 set(COMPONENTS
-        esp-foc
-        esp-i2c
+        esp_foc
+        esp_i2c
 )
 
 idf_component_register(SRCS ${SOURCES} INCLUDE_DIRS include REQUIRES ${COMPONENTS})
