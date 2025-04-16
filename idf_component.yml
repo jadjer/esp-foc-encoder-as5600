@@ -6,5 +6,5 @@ dependencies:
 #    version: "*"
 
   esp_i2c:
-    git: https://github.com/jadjer/esp-idf-i2c.git
+    git: https://github.com/jadjer/esp-i2c.git
     version: "*"
