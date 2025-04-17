@@ -14,9 +14,11 @@
 
 #pragma once
 
+#include <cstdint>
 #include <foc/encoder/EncoderBase.hpp>
 #include <i2c/Device.hpp>
 #include <i2c/Master.hpp>
+#include <memory>
 
 namespace foc {
 
@@ -93,36 +95,24 @@ public:
 
 public:
   AS5600();
-
   ~AS5600() override = default;
 
 public:
-  [[maybe_unused]] void setPowerMode(PowerMode powerMode);
-
-  [[maybe_unused]] void setHysteresis(Hysteresis hysteresis);
-
-  [[maybe_unused]] void setOutputStage(OutputStage outputStage);
-
-  [[maybe_unused]] void setPWMFrequency(PWMFrequency pwmFrequency);
-
-  [[maybe_unused]] void setSlowFilter(SlowFilter slowFilter);
-
-  [[maybe_unused]] void setFastFilterThreshold(FastFilterThreshold fastFilterThreshold);
-
-  [[maybe_unused]] void setWatchdog(bool enable);
+  [[maybe_unused]] auto setPowerMode(PowerMode powerMode) -> void;
+  [[maybe_unused]] auto setHysteresis(Hysteresis hysteresis) -> void;
+  [[maybe_unused]] auto setOutputStage(OutputStage outputStage) -> void;
+  [[maybe_unused]] auto setPWMFrequency(PWMFrequency pwmFrequency) -> void;
+  [[maybe_unused]] auto setSlowFilter(SlowFilter slowFilter) -> void;
+  [[maybe_unused]] auto setFastFilterThreshold(FastFilterThreshold fastFilterThreshold) -> void;
+  [[maybe_unused]] auto setWatchdog(bool enable) -> void;
 
 public:
-  Angle getMechanicalAngle() override;
-
-  Angle getAngle() override;
-
-  Angle getVelocity() override;
-
-  Rotations getFullRotations() override;
-
-  Rotations getRotations() override;
-
-  PreciseAngle getPreciseAngle() override;
+  [[nodiscard]] [[maybe_unused]] auto getMechanicalAngle() -> Angle override;
+  [[nodiscard]] [[maybe_unused]] auto getAngle() -> Angle override;
+  [[nodiscard]] [[maybe_unused]] auto getVelocity() -> Angle override;
+  [[nodiscard]] [[maybe_unused]] auto getFullRotations() -> Rotations override;
+  [[nodiscard]] [[maybe_unused]] auto getRotations() -> Rotations override;
+  [[nodiscard]] [[maybe_unused]] auto getPreciseAngle() -> PreciseAngle override;
 
 public:
   void update() override;
