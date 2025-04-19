@@ -1,10 +1,10 @@
 dependencies:
   idf: ">=5.4.1"
 
-#  esp_foc:
+#  foc:
 #    git: https://github.com/jadjer/esp-foc.git
 #    version: "*"
 
-#  esp_i2c:
+#  i2c:
 #    git: https://github.com/jadjer/esp-i2c.git
 #    version: "*"
