@@ -18,6 +18,8 @@
 #include <cstring>
 #include <esp_log.h>
 
+namespace {
+
 auto const TAG = "AS5600";
 
 [[maybe_unused]] auto const DEVICE_ADDRESS = 0x36;     ///< Адрес устройства
@@ -33,22 +35,20 @@ auto const TAG = "AS5600";
 [[maybe_unused]] auto const REGISTER_MAGNITUDE = 0x1B; ///< Магнитуда
 [[maybe_unused]] auto const REGISTER_BURN = 0xFF;      ///< Запись в ПЗУ
 
-namespace {
-
-template <typename T> T convertBytesToData(std::vector<std::uint8_t> bytes) {
+template <typename T> auto convertBytesToData(std::vector<std::uint8_t> bytes) -> T {
   T struct_{};
 
-  std::reverse(bytes.begin(), bytes.end());
+  std::ranges::reverse(bytes);
   std::memcpy(&struct_, bytes.data(), bytes.size());
 
   return struct_;
 }
 
-template <typename T> std::vector<uint8_t> convertDataToBytes(T struct_) {
+template <typename T> auto convertDataToBytes(T struct_) -> std::vector<uint8_t> {
   std::vector<uint8_t> bytes(sizeof(T));
 
   std::memcpy(bytes.data(), &struct_, sizeof(T));
-  std::reverse(bytes.begin(), bytes.end());
+  std::ranges::reverse(bytes);
 
   return bytes;
 }
@@ -57,10 +57,25 @@ template <typename T> std::vector<uint8_t> convertDataToBytes(T struct_) {
 
 namespace foc {
 
-AS5600::AS5600() {
-  m_busMaster = std::make_unique<i2c::Master>(21, 22, 0);
-  m_device = m_busMaster->createDevice(DEVICE_ADDRESS);
+auto AS5600::create(i2c::Master::Pin const sda, i2c::Master::Pin const scl, i2c::Master::Port const port) -> std::expected<AS5600::Pointer, AS5600::Error> {
+  return AS5600::create(sda, scl, port, DEVICE_ADDRESS);
+}
 
+auto AS5600::create(i2c::Master::Pin const sda, i2c::Master::Pin const scl, i2c::Master::Port const port, i2c::Device::Address const address) -> std::expected<Pointer, Error> {
+  auto bus = i2c::Master::create(sda, scl, port);
+  if (not bus) {
+    return std::unexpected(AS5600::Error::I2C_BUS_CREATED_ERROR);
+  }
+
+  auto device = (*bus)->createDevice(address);
+  if (not device) {
+    return std::unexpected(AS5600::Error::I2C_DEVICE_CREATED_ERROR);
+  }
+
+  return AS5600::Pointer(new AS5600(std::move(*bus), std::move(*device)));
+}
+
+AS5600::AS5600(i2c::Master::Pointer bus_, i2c::Device::Pointer device_) noexcept : bus(std::move(bus_)), device(std::move(device_)) {
   m_status = getStatus();
   ESP_LOGI(TAG, "Magnet low: %d", m_status.magnetLow);
   ESP_LOGI(TAG, "Magnet high: %d", m_status.magnetHigh);
@@ -76,112 +91,100 @@ AS5600::AS5600() {
   ESP_LOGI(TAG, "Watchdog: %d", m_configuration.watchdog);
 }
 
-[[maybe_unused]] void AS5600::setPowerMode(AS5600::PowerMode powerMode) {
+void AS5600::init() { EncoderBase::init(); }
+
+[[maybe_unused]] auto AS5600::setPowerMode(AS5600::PowerMode powerMode) -> void {
   m_configuration.powerMode = powerMode;
 
   auto const configurationData = convertDataToBytes(m_configuration);
 
-  m_device->write(REGISTER_CONF, configurationData);
+  device->write(REGISTER_CONF, configurationData);
 }
 
-[[maybe_unused]] void AS5600::setHysteresis(AS5600::Hysteresis hysteresis) {
+[[maybe_unused]] auto AS5600::setHysteresis(AS5600::Hysteresis hysteresis) -> void {
   m_configuration.hysteresis = hysteresis;
 
   auto const configurationData = convertDataToBytes(m_configuration);
 
-  m_device->write(REGISTER_CONF, configurationData);
+  device->write(REGISTER_CONF, configurationData);
 }
 
-[[maybe_unused]] void AS5600::setOutputStage(AS5600::OutputStage outputStage) {
+[[maybe_unused]] auto AS5600::setOutputStage(AS5600::OutputStage outputStage) -> void {
   m_configuration.outputStage = outputStage;
 
   auto const configurationData = convertDataToBytes(m_configuration);
 
-  m_device->write(REGISTER_CONF, configurationData);
+  device->write(REGISTER_CONF, configurationData);
 }
 
-[[maybe_unused]] void AS5600::setPWMFrequency(AS5600::PWMFrequency pwmFrequency) {
+[[maybe_unused]] auto AS5600::setPWMFrequency(AS5600::PWMFrequency pwmFrequency) -> void {
   m_configuration.pwmFrequency = pwmFrequency;
 
   auto const configurationData = convertDataToBytes(m_configuration);
 
-  m_device->write(REGISTER_CONF, configurationData);
+  device->write(REGISTER_CONF, configurationData);
 }
 
-[[maybe_unused]] void AS5600::setSlowFilter(AS5600::SlowFilter slowFilter) {
+[[maybe_unused]] auto AS5600::setSlowFilter(AS5600::SlowFilter slowFilter) -> void {
   m_configuration.slowFilter = slowFilter;
 
   auto const configurationData = convertDataToBytes(m_configuration);
 
-  m_device->write(REGISTER_CONF, configurationData);
+  device->write(REGISTER_CONF, configurationData);
 }
 
-[[maybe_unused]] void AS5600::setFastFilterThreshold(AS5600::FastFilterThreshold fastFilterThreshold) {
+[[maybe_unused]] auto AS5600::setFastFilterThreshold(AS5600::FastFilterThreshold fastFilterThreshold) -> void {
   m_configuration.fastFilterThreshold = fastFilterThreshold;
 
   auto const configurationData = convertDataToBytes(m_configuration);
 
-  m_device->write(REGISTER_CONF, configurationData);
+  device->write(REGISTER_CONF, configurationData);
 }
 
-[[maybe_unused]] void AS5600::setWatchdog(bool enable) {
+[[maybe_unused]] auto AS5600::setWatchdog(bool enable) -> void {
   m_configuration.watchdog = enable;
 
   auto const configurationData = convertDataToBytes(m_configuration);
 
-  m_device->write(REGISTER_CONF, configurationData);
+  device->write(REGISTER_CONF, configurationData);
 }
 
-AS5600::Status AS5600::getStatus() {
-  if (not m_device) {
-    return m_status;
-  }
-
-  auto const statusData = m_device->read(REGISTER_STATUS);
+auto AS5600::getStatus() -> AS5600::Status {
+  auto const statusData = device->read(REGISTER_STATUS);
 
   m_status = convertBytesToData<AS5600::Status>(statusData);
 
   return m_status;
 }
 
-AS5600::Configuration AS5600::getConfiguration() {
-  if (not m_device) {
-    return m_configuration;
-  }
-
-  auto const configurationData = m_device->read(REGISTER_CONF, 2);
+auto AS5600::getConfiguration() -> AS5600::Configuration {
+  auto const configurationData = device->read(REGISTER_CONF, 2);
 
   m_configuration = convertBytesToData<AS5600::Configuration>(configurationData);
 
   return m_configuration;
 }
 
-float AS5600::getMechanicalAngle() { return EncoderBase::getMechanicalAngle(); }
+auto AS5600::getMechanicalAngle() -> float { return EncoderBase::getMechanicalAngle(); }
 
-float AS5600::getAngle() { return EncoderBase::getAngle(); }
+auto AS5600::getAngle() -> float { return EncoderBase::getAngle(); }
 
-float AS5600::getVelocity() { return EncoderBase::getVelocity(); }
+auto AS5600::getVelocity() -> float { return EncoderBase::getVelocity(); }
 
-AS5600::Rotations AS5600::getFullRotations() { return EncoderBase::getFullRotations(); }
+auto AS5600::getFullRotations() -> AS5600::Rotations { return EncoderBase::getFullRotations(); }
 
-AS5600::Rotations AS5600::getRotations() { return AS5600::Rotations(); }
+auto AS5600::getRotations() -> AS5600::Rotations { return AS5600::Rotations(); }
 
-AS5600::PreciseAngle AS5600::getPreciseAngle() { return EncoderBase::getPreciseAngle(); }
+auto AS5600::getPreciseAngle() -> AS5600::PreciseAngle { return EncoderBase::getPreciseAngle(); }
 
-void AS5600::update() { EncoderBase::update(); }
+auto AS5600::update() -> void { EncoderBase::update(); }
 
-int AS5600::needsSearch() { return EncoderBase::needsSearch(); }
+auto AS5600::needsSearch() -> int { return EncoderBase::needsSearch(); }
 
-float AS5600::getSensorAngle() {
-  if (not m_device) {
-    return {};
-  }
-
-  auto const angleData = m_device->read(REGISTER_ANGLE, 2);
+auto AS5600::getSensorAngle() -> float {
+  auto const angleData = device->read(REGISTER_ANGLE, 2);
 
   return convertBytesToData<AS5600::Angle>(angleData);
 }
-
-void AS5600::init() { EncoderBase::init(); }
 
 } // namespace foc

@@ -15,6 +15,7 @@
 #pragma once
 
 #include <cstdint>
+#include <expected>
 #include <foc/encoder/EncoderBase.hpp>
 #include <i2c/Device.hpp>
 #include <i2c/Master.hpp>
@@ -23,11 +24,6 @@
 namespace foc {
 
 class AS5600 : public EncoderBase {
-public:
-  using Byte = std::uint8_t;
-  using Device = std::unique_ptr<i2c::Device>;
-  using BusMaster = std::unique_ptr<i2c::Master>;
-
 public:
   enum PowerMode : std::uint8_t {
     POWER_MODE_NORMAL [[maybe_unused]] = 0b00,
@@ -63,7 +59,7 @@ public:
     SLOW_FILTER_X2 [[maybe_unused]] = 0b11,
   };
 
-  enum FastFilterThreshold : std::uint16_t {
+  enum FastFilterThreshold : std::uint8_t {
     SLOW_FILTER_ONLY [[maybe_unused]] = 0b000,
     FAST_FILTER_THRESHOLD_6_LSB [[maybe_unused]] = 0b001,
     FAST_FILTER_THRESHOLD_7_LSB [[maybe_unused]] = 0b010,
@@ -94,8 +90,20 @@ public:
   };
 
 public:
-  AS5600();
-  ~AS5600() override = default;
+  enum class Error : std::uint8_t {
+    I2C_BUS_CREATED_ERROR,
+    I2C_DEVICE_CREATED_ERROR,
+  };
+
+public:
+  using Pointer = std::unique_ptr<AS5600>;
+
+public:
+  static auto create(i2c::Master::Pin sda, i2c::Master::Pin scl, i2c::Master::Port port) -> std::expected<Pointer, Error>;
+  static auto create(i2c::Master::Pin sda, i2c::Master::Pin scl, i2c::Master::Port port, i2c::Device::Address address) -> std::expected<Pointer, Error>;
+
+private:
+  AS5600(i2c::Master::Pointer bus, i2c::Device::Pointer device) noexcept;
 
 public:
   [[maybe_unused]] auto setPowerMode(PowerMode powerMode) -> void;
@@ -115,28 +123,26 @@ public:
   [[nodiscard]] [[maybe_unused]] auto getPreciseAngle() -> PreciseAngle override;
 
 public:
-  void update() override;
+  auto update() -> void override;
 
 public:
-  int needsSearch() override;
+  auto needsSearch() -> int override;
 
 protected:
-  Angle getSensorAngle() override;
-
-  void init() override;
+  auto init() -> void override;
+  auto getSensorAngle() -> Angle override;
 
 public:
-  [[nodiscard]] AS5600::Status getStatus();
-
-  [[nodiscard]] AS5600::Configuration getConfiguration();
-
-private:
-  AS5600::Device m_device = nullptr;
-  AS5600::BusMaster m_busMaster = nullptr;
+  [[nodiscard]] auto getStatus() -> Status;
+  [[nodiscard]] auto getConfiguration() -> Configuration;
 
 private:
-  Status m_status = {};
-  Configuration m_configuration = {};
+  i2c::Master::Pointer const bus;
+  i2c::Device::Pointer const device;
+
+private:
+  Status m_status{};
+  Configuration m_configuration{};
 };
 
 } // namespace foc
